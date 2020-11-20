@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<title>List-Building</title>
+	<link rel="shortcut icon" href="./static/favicon.ico">
+	<meta name="viewport" content="width = device-width, initial-scale=1, user-scalable = no" />
+	<link href="https://tools-static.wmflabs.org/fontcdn/css?family=Merriweather:400,400italic,700,700italic&subset=latin" rel="stylesheet" type="text/css">
+	<link href='https://tools-static.wmflabs.org/fontcdn/css?family=Lato:400,400italic,700,700italic&subset=latin' rel='stylesheet' type='text/css'>
+	<link rel="stylesheet" href="./static/style.css" />
+
+</head>
+
+<body>
+	<script type="text/javascript">
+		var body = document.body;
+		body.classList.add('js');
+	</script>
+
+	<div id="origin_bar">
+		<div class="boxwidth--1-1 padded--left padded--right">
+			<a href="https://research.wikimedia.org/" class="origin_title"><img src="./static/Wikimedia-Foundation-logo.svg" alt="Wikimedia Foundation logo" />Wikimedia Research</a>
+		</div>
+	</div>
+
+	<article id="tool_holder">
+		<div id="tool_header--holder" class="boxwidth--1-1 padded--left padded--right">
+			<header id="tool_header">
+				<h1>List-Building Comparison</h1>
+				<div class="meta">
+					<div class="disclaimer note">
+						<p>No guarantees are made that this tool will be maintained.</p>
+						<p>This is an experimental tool hosted on <a href="https://wikitech.wikimedia.org/wiki/Portal:Toolforge">Toolforge</a>. No additional personal data is collected by this tool per the Cloud Services
+							<a href="https://wikitech.wikimedia.org/wiki/Wikitech:Cloud_Services_Terms_of_use" target="_blank" rel="noopener">Terms of Use</a>.</p>
+					</div>
+					<div class="description padded--right">
+						<p>This tool allows one to compare outputs from various list-building models for Wikipedia articles.</p>
+						<p>Enter a language code and Wikidata item ID below to see how each list-building model finds related content. If you leave the item ID field blank, the UI will select a random article in that language to evaluate.</p>
+					</div>
+				</div>
+			</header>
+		</div>
+
+		<div class="separator"></div>
+
+		<section id="list-building-models" class="boxwidth--1-1 padded--left padded--right">
+			<main id="tool_main">
+				<section class="form">
+					<form action="#list-building-models">
+						<div class="cols cols3">
+							<div class="col col1">
+								<label class="placeholder"><span class="field_name">Language code -- e.g., en for English</span>
+									<input type="text" value="" placeholder="Placeholder text" id="lang"/>
+								</label>
+							</div>
+							<div class="col col1">
+								<label class="placeholder"><span class="field_name">Wikidata ID -- e.g., Q42 for Douglas Adams</span>
+									<input type="text" value="" placeholder="Placeholder text" id="item_id"/>
+								</label>
+							</div>
+							<div class="col col1">
+								<span class="field_name"></span>
+								<input type="submit" value="Submit" id="btnSubmit"/>
+							</div>
+						</div>
+					</form>
+				</section>
+				<section id="results">
+					<div id="seed"></div>
+					<div class="cols cols3">
+						<div class="col col1">
+							<section class="text" id="reader-based-results">
+								<!-- Empty section to hold results -->
+							</section>
+						</div>
+
+						<div class="col col1">
+							<section class="text" id="wikidata-based-results">
+								<!-- Empty section to hold results -->
+							</section>
+						</div>
+
+						<div class="col col1">
+							<section class="text" id="content-based-results">
+								<!-- Empty section to hold results -->
+							</section>
+						</div>
+
+					</div>
+				</section>
+			</main>
+		</section>
+	</article>
+
+	<footer id="tool_footer">
+		<div id="tool_footer-in" class="boxwidth--1-1 padded--left padded--right">
+			<p>Experimental tool developed by <span class="tool-author"><a href="https://meta.wikipedia.org/wiki/User:Isaac_(WMF)">Isaac (WMF)</a>, <a href="https://meta.wikipedia.org/wiki/User:MGerlach_(WMF)">MGerlach (WMF)</a>, and <a href="https://meta.wikipedia.org/wiki/User:Diego_(WMF)">Diego (WMF)</a> as part of <a href="https://research.wikimedia.org/">Wikimedia Research</a></span>.</p>
+			<ul>
+				<li><a href="https://github.com/geohci/list-building-interface">View Source</a></li>
+				<li><a href="https://meta.wikimedia.org/wiki/Research:Language-Agnostic_Topic_Classification">Meta</a></li>
+				<li><a href="https://github.com/geohci/list-building-interface#license">License</a></li>
+			</ul>
+		</div>
+	</footer>
+
+
+	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/jquery/3.5.0/jquery.min.js"></script>
+	<script type="text/javascript">
+		$(document).ready(function() {
+			$('form label.placeholder').each(function() {
+				$(this).addClass('off');
+				$(this).on('focusin', function() {
+					$(this).removeClass('off');
+				});
+				$(this).on('focusout', function() {
+					if (!$('input, textarea, select', this).val()) {
+						$(this).addClass('off');
+					}
+				});
+				$('*[placeholder]', this).attr('placeholder', '');
+			});
+		});
+	</script>
+
+	<script type="text/javascript">
+		$('#btnSubmit').click(function (e) {
+		   e.preventDefault(); queryListBuildingModels();
+		});
+
+		var render_error = function(divid, label) {
+			$("#" + divid).empty();
+			$("#" + divid).append('<br><h3>' + label + '</h3><p>Error collecting data.</p>');
+		}
+
+		var render_not_implemented = function(divid, label) {
+			$("#" + divid).empty();
+			$("#" + divid).append('<br><h3>' + label + '</h3><p>Not implemented.</p>');
+
+		}
+
+		var render_list = function(data, divid, label) {
+			$("#" + divid).empty();
+			if ("Error" in data) {
+				$("#" + divid).append("<br><h3>" + label + "</h3><p>Error: " + data["Error"] + "</p>");
+			}
+			else {
+				$("#" + divid).append('<br><h3>' + label + '</h3>');
+			  	if (data.length > 0) {
+					$("#" + divid).append("<ol>");
+					for (var idx in data) {
+						var wdurl = '<a href="https://www.wikidata.org/wiki/' + data[idx]['qid'] + '">' + data[idx]['qid'] + '</a>';
+						if (data[idx]['title'] == '-') {
+							var wpurl = 'Article missing';
+						} else {
+							var wpurl = '<a href="https://' + document.getElementById('lang').value + '.wikipiedia.org/wiki/' + data[idx]['title'] + '">' + data[idx]['title'].replaceAll('_', ' ') + '</a>';
+						}
+						$("#" + divid).append("<li>" + wpurl + " (" + wdurl + ")</li>");
+					}
+					$("#" + divid).append("</ol>");
+			  	}
+			  	else {
+					$("#" + divid).append("<li><No similar articles found.</li>");
+			  	}
+			}
+		}
+
+		var update_item = function(data) {
+			if ('wikibase_item' in data['query']['pages'][0]['pageprops']) {
+				document.getElementById('item_id').value = data['query']['pages'][0]['pageprops']['wikibase_item'];
+			} else {
+			    document.getElementById('item_id').value = data['query']['pages'][1]['pageprops']['wikibase_item'];
+			}
+			document.getElementById('item_id').parentNode.className = 'placeholder';
+		}
+
+		var update_info = function(data) {
+			$("#seed").empty();
+			$("#seed").append('<h3><a href="' + data['entities'][document.getElementById('item_id').value]['sitelinks'][document.getElementById('lang').value + 'wiki']['url'] + '">' + document.getElementById('lang').value + ':' + data['entities'][document.getElementById('item_id').value]['sitelinks'][document.getElementById('lang').value + 'wiki']['title'] + '</a></h3>');
+		}
+
+		function queryListBuildingModels() {
+			if (document.getElementById('lang').value && !document.getElementById('item_id').value) {
+				// https://www.mediawiki.org/wiki/API:Cross-site_requests#JSONP_usage
+				var randomPageQueryURL = "https://" + document.getElementById('lang').value + ".wikipedia.org/w/api.php?action=query&format=json&formatversion=2&generator=random&grnlimit=2&grnnamespace=0&prop=pageprops&origin=*";
+				$.ajax(randomPageQueryURL, {success: update_item.bind(this),
+							  error: function(jqxmlhr, status, error){console.log(status + ": " + error)},
+							  async: false
+							  }
+				  );
+			}
+			var pageTitleURL = "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=" + document.getElementById('item_id').value + "&props=sitelinks/urls&sitefilter=" + document.getElementById('lang').value + "wiki&format=json&formatversion=2&origin=*";
+			$.ajax(pageTitleURL, {success: update_info.bind(this),
+						  error: function(jqxmlhr, status, error){console.log(status + ": " + error)}
+						  }
+			  );
+
+			var readerQueryUrl = "https://reader.wmcloud.org/api/v1/list-reader?k=12&lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value;
+			var wikidataQueryUrl = "https://reader.wmcloud.org/api/v1/list-reader?k=12&lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value;
+			var contentQueryUrl = "https://reader.wmcloud.org/api/v1/list-reader?k=12&lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value;
+
+			$.ajax(readerQueryUrl, {success: function(jqxmlhr, status, error){render_list(jqxmlhr, 'reader-based-results', 'Reader-based')},
+							  error: function(jqxmlhr, status, error){render_error('reader-based-results', 'Reader-based')}
+							  }
+				  );
+		    render_not_implemented('wikidata-based-results', 'Wikidata-based');
+		    render_not_implemented('content-based-results', 'Content-based');
+			//$.ajax(wikidataQueryUrl, {success: function(jqxmlhr, status, error){render_list(jqxmlhr, 'wikidata-based-results', 'Wikidata-based')},
+			//				  error: function(jqxmlhr, status, error){render_error('wikidata-based-results', 'Wikidata-based')},
+			//				  }
+			//	  );
+			//$.ajax(contentQueryUrl, {success: function(jqxmlhr, status, error){render_list(jqxmlhr, 'content-based-results', 'Content-based')},
+			//				  error: function(jqxmlhr, status, error){render_error('content-based-results', 'Content-based')},
+			//				  }
+			//	  );
+
+	    }
+	</script>
+
+</body>
+
+</html>
