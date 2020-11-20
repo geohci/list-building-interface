@@ -59,6 +59,11 @@
 									<input type="text" value="" placeholder="Placeholder text" id="item_id"/>
 								</label>
 							</div>
+							<div class="col col4">
+								<label class="placeholder"><span class="field_name">Number of articles</span>
+									<input type="number" value="12" id="k"/>
+								</label>
+							</div>
 							<div class="col col1">
 								<span class="field_name"></span>
 								<input type="submit" value="Submit" id="btnSubmit"/>
@@ -195,9 +200,9 @@
 						  }
 			  );
 
-			var readerQueryUrl = "https://reader.wmcloud.org/api/v1/list-reader?k=12&lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value;
-			var wikidataQueryUrl = "https://reader.wmcloud.org/api/v1/list-reader?k=12&lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value;
-			var contentQueryUrl = "https://reader.wmcloud.org/api/v1/list-reader?k=12&lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value;
+			var readerQueryUrl = "https://reader.wmcloud.org/api/v1/list-reader?lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value + "&k=" + document.getElementById('k').value;
+			var wikidataQueryUrl = "https://reader.wmcloud.org/api/v1/list-reader?lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value + "&k=" + document.getElementById('k').value;;
+			var contentQueryUrl = "https://reader.wmcloud.org/api/v1/list-reader?lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value + "&k=" + document.getElementById('k').value;;
 
 			$.ajax(readerQueryUrl, {success: function(jqxmlhr, status, error){render_list(jqxmlhr, 'reader-based-results', 'Reader-based')},
 							  error: function(jqxmlhr, status, error){render_error('reader-based-results', 'Reader-based')}
