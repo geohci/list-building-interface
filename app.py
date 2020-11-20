@@ -27,8 +27,8 @@ CORS(app)
 
 @app.route('/')
 def index():
-    lang, qid = validate_api_args()
-    return render_template('index.html', qid=qid, lang=lang)
+    lang, qid, k = validate_api_args()
+    return render_template('index.html', qid=qid, lang=lang, k=k)
 
 
 def validate_qid(qid):
@@ -36,6 +36,9 @@ def validate_qid(qid):
 
 def validate_lang(lang):
     return lang in WIKIPEDIA_LANGUAGE_CODES
+
+def validate_k(k):
+    return re.match('^[0-9]+$', k)
 
 def validate_api_args():
     lang = None
@@ -47,5 +50,9 @@ def validate_api_args():
     if 'qid' in request.args:
         if validate_qid(request.args['qid'].upper()):
             qid = request.args['qid'].upper()
+    k = 12
+    if 'k' in request.args:
+        if validate_k(request.args['k']):
+            k = int(request.args['k'])
 
-    return lang, qid
+    return lang, qid, k
