@@ -48,8 +48,8 @@
 			<main id="tool_main">
 				<section class="form">
 					<form action="#list-building-models">
-						<div class="cols cols4">
-							<div class="col col1">
+						<div class="cols cols8">
+							<div class="col col3">
 								{% if lang %}
 								<label class="placeholder"><span class="field_name">Language code -- e.g., en for English</span>
 									<input type="text" value="{{lang}}" placeholder="Placeholder text" id="lang"/>
@@ -60,7 +60,7 @@
 								</label>
 								{% endif %}
 							</div>
-							<div class="col col1">
+							<div class="col col3">
 								{% if qid %}
 								<label class="placeholder"><span class="field_name">Wikidata ID -- e.g., Q42 for Douglas Adams</span>
 									<input type="text" value="{{qid}}" placeholder="Placeholder text" id="item_id"/>
@@ -73,11 +73,11 @@
 							</div>
 							<div class="col col1">
 								{% if k %}
-								<label class="placeholder"><span class="field_name">Number of articles for list</span>
+								<label class="placeholder"><span class="field_name"># of results</span>
 									<input type="number" value="{{k}}" placeholder="Placeholder text" id="k"/>
 								</label>
 								{% else %}
-								<label class="placeholder"><span class="field_name">Number of articles for list</span>
+								<label class="placeholder"><span class="field_name"># of results</span>
 									<input type="number" value="" placeholder="Placeholder text" id="k"/>
 								</label>
 								{% endif %}
@@ -167,7 +167,7 @@
 		var render_list = function(data, divid, label) {
 			$("#" + divid).empty();
 			if ("Error" in data) {
-				$("#" + divid).append("<br><h3>" + label + "</h3><p>Error: " + data["Error"] + "</p>");
+				$("#" + divid).append("<br><h3>" + label + "</h3><p>" + data["Error"] + "</p>");
 			}
 			else {
 				$("#" + divid).append('<br><h3>' + label + '</h3>');

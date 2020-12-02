@@ -416,6 +416,15 @@ h6 {
 	width: 25%;
 }
 
+#tool_main .cols8 .col3 {
+	width: 37.5%;
+}
+
+#tool_main .cols8 .col1 {
+	width: 12.5%;
+}
+
+
 #tool_main form label {
 	display: block;
 }
