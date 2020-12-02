@@ -48,7 +48,7 @@
 			<main id="tool_main">
 				<section class="form">
 					<form action="#list-building-models">
-						<div class="cols cols3">
+						<div class="cols cols4">
 							<div class="col col1">
 								{% if lang %}
 								<label class="placeholder"><span class="field_name">Language code -- e.g., en for English</span>
@@ -74,11 +74,11 @@
 							<div class="col col1">
 								{% if k %}
 								<label class="placeholder"><span class="field_name">Number of articles for list</span>
-									<input type="text" value="{{k}}" placeholder="Placeholder text" id="k"/>
+									<input type="number" value="{{k}}" placeholder="Placeholder text" id="k"/>
 								</label>
 								{% else %}
 								<label class="placeholder"><span class="field_name">Number of articles for list</span>
-									<input type="text" value="" placeholder="Placeholder text" id="k"/>
+									<input type="number" value="" placeholder="Placeholder text" id="k"/>
 								</label>
 								{% endif %}
 							</div>

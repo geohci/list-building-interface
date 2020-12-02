@@ -38,7 +38,10 @@ def validate_lang(lang):
     return lang in WIKIPEDIA_LANGUAGE_CODES
 
 def validate_k(k):
-    return re.match('^[0-9]+$', k)
+    try:
+        return int(k) >= 1
+    except:
+        return False
 
 def validate_api_args():
     lang = None
