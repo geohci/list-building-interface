@@ -174,13 +174,15 @@
 			  	if (data.length > 0) {
 					$("#" + divid).append("<ol>");
 					for (var idx in data) {
-						var wdurl = '<a href="https://www.wikidata.org/wiki/' + data[idx]['qid'] + '">' + data[idx]['qid'] + '</a>';
-						if (data[idx]['title'] == '-') {
-							var wpurl = 'Article missing';
-						} else {
-							var wpurl = '<a href="https://' + document.getElementById('lang').value + '.wikipiedia.org/wiki/' + data[idx]['title'] + '">' + data[idx]['title'].replaceAll('_', ' ') + '</a>';
+						if (data[idx]['qid'] != document.getElementById('item_id').value) {
+							var wdurl = '<a href="https://www.wikidata.org/wiki/' + data[idx]['qid'] + '">' + data[idx]['qid'] + '</a>';
+							if (data[idx]['title'] == '-') {
+								var wpurl = 'Article missing';
+							} else {
+								var wpurl = '<a href="https://' + document.getElementById('lang').value + '.wikipiedia.org/wiki/' + data[idx]['title'] + '">' + data[idx]['title'].replaceAll('_', ' ') + '</a>';
+							}
+							$("#" + divid).append("<li>" + wpurl + " (" + wdurl + ")</li>");
 						}
-						$("#" + divid).append("<li>" + wpurl + " (" + wdurl + ")</li>");
 					}
 					$("#" + divid).append("</ol>");
 			  	}
@@ -222,22 +224,21 @@
 
 			var readerQueryUrl = "https://reader.wmcloud.org/api/v1/list-reader?lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value + "&k=" + document.getElementById('k').value;
 			var wikidataQueryUrl = "https://reader.wmcloud.org/api/v1/list-reader?k=12&lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value;
-			var contentQueryUrl = "https://reader.wmcloud.org/api/v1/list-reader?k=12&lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value;
+			var contentQueryUrl = "https://content-similarity-outlinks.wmcloud.org/api/v1/outlinks?lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value + "&k=" + document.getElementById('k').value;
 
 			$.ajax(readerQueryUrl, {success: function(jqxmlhr, status, error){render_list(jqxmlhr, 'reader-based-results', 'Reader-based')},
 							  error: function(jqxmlhr, status, error){render_error('reader-based-results', 'Reader-based')}
 							  }
 				  );
 		    render_not_implemented('wikidata-based-results', 'Wikidata-based');
-		    render_not_implemented('content-based-results', 'Content-based');
-			//$.ajax(wikidataQueryUrl, {success: function(jqxmlhr, status, error){render_list(jqxmlhr, 'wikidata-based-results', 'Wikidata-based')},
+		    //$.ajax(wikidataQueryUrl, {success: function(jqxmlhr, status, error){render_list(jqxmlhr, 'wikidata-based-results', 'Wikidata-based')},
 			//				  error: function(jqxmlhr, status, error){render_error('wikidata-based-results', 'Wikidata-based')},
 			//				  }
 			//	  );
-			//$.ajax(contentQueryUrl, {success: function(jqxmlhr, status, error){render_list(jqxmlhr, 'content-based-results', 'Content-based')},
-			//				  error: function(jqxmlhr, status, error){render_error('content-based-results', 'Content-based')},
-			//				  }
-			//	  );
+			$.ajax(contentQueryUrl, {success: function(jqxmlhr, status, error){render_list(jqxmlhr, 'content-based-results', 'Content-based')},
+							  error: function(jqxmlhr, status, error){render_error('content-based-results', 'Content-based')},
+							  }
+				  );
 
 	    }
 	</script>

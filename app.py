@@ -40,7 +40,7 @@ def validate_lang(lang):
 def validate_k(k):
     try:
         return int(k) >= 1
-    except:
+    except ValueError:
         return False
 
 def validate_api_args():
