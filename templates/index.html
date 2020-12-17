@@ -182,7 +182,7 @@
 							if (data[idx]['title'] == '-') {
 								var wpurl = 'Article missing';
 							} else {
-								var wpurl = '<a href="https://' + document.getElementById('lang').value + '.wikipiedia.org/wiki/' + data[idx]['title'] + '">' + data[idx]['title'].replaceAll('_', ' ') + '</a>';
+								var wpurl = '<a href="https://' + document.getElementById('lang').value + '.wikipiedia.org/wiki/' + data[idx]['title'].replaceAll(' ', '_') + '">' + data[idx]['title'].replaceAll('_', ' ') + '</a>';
 							}
 							$("#" + divid).append("<li>" + wpurl + " (" + wdurl + ")</li>");
 						}
