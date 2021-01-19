@@ -325,8 +325,6 @@
 				contentQueryUrl = "https://content-similarity-outlinks.wmcloud.org/api/v1/outlinks-interactive?lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value + "&k=" + document.getElementById('k').value;
 				article_list.add(document.getElementById('item_id').value);
 			}
-			console.log(article_list);
-			console.log(contentQueryUrl);
 
 			var pageTitleURL = "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=" + qid + "&props=sitelinks/urls&sitefilter=" + document.getElementById('lang').value + "wiki&format=json&formatversion=2&origin=*";
 			$.ajax(pageTitleURL, {success: function(jqxmlhr, status, error){update_info(jqxmlhr, qid)},
