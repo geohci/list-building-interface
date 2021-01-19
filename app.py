@@ -26,9 +26,9 @@ except IOError:
 CORS(app)
 
 @app.route('/')
-def index():
+def interactive():
     lang, qid, k = validate_api_args()
-    return render_template('index.html', qid=qid, lang=lang, k=k)
+    return render_template('interactive.html', qid=qid, lang=lang, k=k)
 
 
 def validate_qid(qid):
