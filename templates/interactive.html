@@ -262,7 +262,6 @@
 			full_list.draw();
 
 			var contentQueryUrl = "https://content-similarity-outlinks.wmcloud.org/api/v1/outlinks-interactive?lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value + "&k=" + document.getElementById('k').value + "&pos=" + keep.join('|') + "&neg=" + toss.join('|') + "&skip=" + Array.from(article_list).join('|');
-			console.log(contentQueryUrl);
 			$("#content-based-results").empty();
 			$("#content-based-results").append("<p>Processing...</p>");
 			$.ajax(contentQueryUrl, {success: function(jqxmlhr, status, error){render_list(jqxmlhr, 'content-based-results', 'Content-based')},
@@ -280,9 +279,9 @@
 			document.getElementById('item_id').parentNode.className = 'placeholder';
 		}
 
-		var update_info = function(data) {
+		var update_info = function(data, qid) {
 			$("#seed").empty();
-			$("#seed").append('<h3><a href="' + data['entities'][document.getElementById('item_id').value]['sitelinks'][document.getElementById('lang').value + 'wiki']['url'] + '">' + document.getElementById('lang').value + ':' + data['entities'][document.getElementById('item_id').value]['sitelinks'][document.getElementById('lang').value + 'wiki']['title'] + '</a></h3>');
+			$("#seed").append('<h3><a href="' + data['entities'][qid]['sitelinks'][document.getElementById('lang').value + 'wiki']['url'] + '">' + document.getElementById('lang').value + ':' + data['entities'][qid]['sitelinks'][document.getElementById('lang').value + 'wiki']['title'] + '</a></h3>');
 		}
 
 		function initialize_results_table() {
@@ -314,20 +313,33 @@
 							  }
 				  );
 			}
-			var pageTitleURL = "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=" + document.getElementById('item_id').value + "&props=sitelinks/urls&sitefilter=" + document.getElementById('lang').value + "wiki&format=json&formatversion=2&origin=*";
-			$.ajax(pageTitleURL, {success: update_info.bind(this),
+			var qid;
+			var contentQueryUrl;
+			if (document.getElementById('item_id').value.includes('|')) {
+				var qids = document.getElementById('item_id').value.split('|');
+				qid = qids[0];
+				contentQueryUrl = "https://content-similarity-outlinks.wmcloud.org/api/v1/outlinks-interactive?lang=" + document.getElementById('lang').value + "&qid=" + qid + "&k=" + document.getElementById('k').value + "&pos=" + qids.slice(1,).join('|');
+				qids.forEach(article_list.add, article_list)
+			} else {
+				qid = document.getElementById('item_id').value;
+				contentQueryUrl = "https://content-similarity-outlinks.wmcloud.org/api/v1/outlinks-interactive?lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value + "&k=" + document.getElementById('k').value;
+				article_list.add(document.getElementById('item_id').value);
+			}
+			console.log(article_list);
+			console.log(contentQueryUrl);
+
+			var pageTitleURL = "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=" + qid + "&props=sitelinks/urls&sitefilter=" + document.getElementById('lang').value + "wiki&format=json&formatversion=2&origin=*";
+			$.ajax(pageTitleURL, {success: function(jqxmlhr, status, error){update_info(jqxmlhr, qid)},
 						  error: function(jqxmlhr, status, error){console.log(status + ": " + error)}
 						  }
 			  );
 
-			var contentQueryUrl = "https://content-similarity-outlinks.wmcloud.org/api/v1/outlinks-interactive?lang=" + document.getElementById('lang').value + "&qid=" + document.getElementById('item_id').value + "&k=" + document.getElementById('k').value;
-			article_list.add(document.getElementById('item_id').value);
-			initialize_results_table();
+
 			$.ajax(contentQueryUrl, {success: function(jqxmlhr, status, error){render_list(jqxmlhr, 'content-based-results', 'Content-based')},
 							  error: function(jqxmlhr, status, error){render_error('content-based-results', 'Content-based')},
 							  }
 				  );
-
+			initialize_results_table();
 	    }
 	</script>
 
