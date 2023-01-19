@@ -1,13 +1,14 @@
 # Many thanks to: https://wikitech.wikimedia.org/wiki/Help:Toolforge/My_first_Flask_OAuth_tool
-
+from collections import namedtuple
 import os
 import re
+
+from flask import Flask, jsonify, request, render_template
+from flask_cors import CORS
+import requests
 import yaml
 
-from flask import Flask, request, render_template
-from flask_cors import CORS
-
-WIKIPEDIA_LANGUAGE_CODES = ['aa', 'ab', 'ace', 'ady', 'af', 'ak', 'als', 'am', 'an', 'ang', 'ar', 'arc', 'ary', 'arz', 'as', 'ast', 'atj', 'av', 'avk', 'awa', 'ay', 'az', 'azb', 'ba', 'ban', 'bar', 'bat-smg', 'bcl', 'be', 'be-x-old', 'bg', 'bh', 'bi', 'bjn', 'bm', 'bn', 'bo', 'bpy', 'br', 'bs', 'bug', 'bxr', 'ca', 'cbk-zam', 'cdo', 'ce', 'ceb', 'ch', 'cho', 'chr', 'chy', 'ckb', 'co', 'cr', 'crh', 'cs', 'csb', 'cu', 'cv', 'cy', 'da', 'de', 'din', 'diq', 'dsb', 'dty', 'dv', 'dz', 'ee', 'el', 'eml', 'en', 'eo', 'es', 'et', 'eu', 'ext', 'fa', 'ff', 'fi', 'fiu-vro', 'fj', 'fo', 'fr', 'frp', 'frr', 'fur', 'fy', 'ga', 'gag', 'gan', 'gcr', 'gd', 'gl', 'glk', 'gn', 'gom', 'gor', 'got', 'gu', 'gv', 'ha', 'hak', 'haw', 'he', 'hi', 'hif', 'ho', 'hr', 'hsb', 'ht', 'hu', 'hy', 'hyw', 'hz', 'ia', 'id', 'ie', 'ig', 'ii', 'ik', 'ilo', 'inh', 'io', 'is', 'it', 'iu', 'ja', 'jam', 'jbo', 'jv', 'ka', 'kaa', 'kab', 'kbd', 'kbp', 'kg', 'ki', 'kj', 'kk', 'kl', 'km', 'kn', 'ko', 'koi', 'kr', 'krc', 'ks', 'ksh', 'ku', 'kv', 'kw', 'ky', 'la', 'lad', 'lb', 'lbe', 'lez', 'lfn', 'lg', 'li', 'lij', 'lld', 'lmo', 'ln', 'lo', 'lrc', 'lt', 'ltg', 'lv', 'mai', 'map-bms', 'mdf', 'mg', 'mh', 'mhr', 'mi', 'min', 'mk', 'ml', 'mn', 'mnw', 'mr', 'mrj', 'ms', 'mt', 'mus', 'mwl', 'my', 'myv', 'mzn', 'na', 'nah', 'nap', 'nds', 'nds-nl', 'ne', 'new', 'ng', 'nl', 'nn', 'no', 'nov', 'nqo', 'nrm', 'nso', 'nv', 'ny', 'oc', 'olo', 'om', 'or', 'os', 'pa', 'pag', 'pam', 'pap', 'pcd', 'pdc', 'pfl', 'pi', 'pih', 'pl', 'pms', 'pnb', 'pnt', 'ps', 'pt', 'qu', 'rm', 'rmy', 'rn', 'ro', 'roa-rup', 'roa-tara', 'ru', 'rue', 'rw', 'sa', 'sah', 'sat', 'sc', 'scn', 'sco', 'sd', 'se', 'sg', 'sh', 'shn', 'si', 'simple', 'sk', 'sl', 'sm', 'smn', 'sn', 'so', 'sq', 'sr', 'srn', 'ss', 'st', 'stq', 'su', 'sv', 'sw', 'szl', 'szy', 'ta', 'tcy', 'te', 'tet', 'tg', 'th', 'ti', 'tk', 'tl', 'tn', 'to', 'tpi', 'tr', 'ts', 'tt', 'tum', 'tw', 'ty', 'tyv', 'udm', 'ug', 'uk', 'ur', 'uz', 've', 'vec', 'vep', 'vi', 'vls', 'vo', 'wa', 'war', 'wo', 'wuu', 'xal', 'xh', 'xmf', 'yi', 'yo', 'za', 'zea', 'zh', 'zh-classical', 'zh-min-nan', 'zh-yue', 'zu']
+from mwconstants import WIKIPEDIA_LANGUAGES
 
 app = Flask(__name__)
 
@@ -25,37 +26,214 @@ except IOError:
 #CORS(app, resources={'*': {'origins': '*'}})
 CORS(app)
 
+ResultRecord = namedtuple('ResultRecord', ['page_title', 'qid', 'source', 'redlink'])
+
 @app.route('/')
 def index():
-    lang, qid, k = validate_api_args()
-    return render_template('index.html', qid=qid, lang=lang, k=k)
+    return render_template('index.html',
+                           page_title=set_title(), lang=set_lang(), k=set_k())
 
 
-def validate_qid(qid):
-    return re.match('^Q[0-9]+$', qid)
+@app.route('/compare')
+def compare():
+    return render_template('compare.html',
+                           qid=set_qid(), lang=set_lang(), k=set_k())
 
-def validate_lang(lang):
-    return lang in WIKIPEDIA_LANGUAGE_CODES
 
-def validate_k(k):
+@app.route('/api/serpentine')
+def query_apis():
+    # TODO error handling
+    lang = set_lang()
+    title = set_title()
+    qid = set_qid()
+    if qid is None:
+        qid = title_to_qid(lang=lang, title=title)
+
+    # TODO: actually incorporate offsets on backend for reader/link requests instead of hacking and update this code
     try:
-        return int(k) >= 1
-    except ValueError:
-        return False
+        results_links = fetch_links_results(lang=lang, qid=qid, k=set_k('links'), offset=set_offset('links'))
+    except Exception:
+        results_links = []
+    try:
+        results_morelike = fetch_morelike_results(lang=lang, title=title, k=set_k('morelike'), offset=set_offset('morelike'))
+    except Exception:
+        results_morelike = []
+    try:
+        results_reader = fetch_reader_results(lang=lang, qid=qid, k=set_k('reader'), offset=set_offset('reader'))
+    except Exception:
+        results_reader = []
 
-def validate_api_args():
-    lang = None
-    if 'lang' in request.args:
-        if validate_lang(request.args['lang'].lower()):
-            lang = request.args['lang'].lower()
+    results_serpentined = []
+    pages_added = set([qid, title])
+    # TODO: more random serpentining of sources?
+    # TODO: deduplicate code
+    max_num_results = max([len(results_links), len(results_morelike), len(results_reader)])
+    for i in range(0, max_num_results):
+        if i < len(results_links):
+            page = results_links[i].qid if results_links[i].qid else results_links[i].page_title
+            if page not in pages_added:
+                results_serpentined.append(results_links[i]._asdict())
+                pages_added.add(page)
+        if i < len(results_morelike):
+            page = results_morelike[i].qid if results_morelike[i].qid else results_morelike[i].page_title
+            if page not in pages_added:
+                results_serpentined.append(results_morelike[i]._asdict())
+                pages_added.add(page)
+        if i < len(results_reader):
+            page = results_reader[i].qid if results_reader[i].qid else results_reader[i].page_title
+            if page not in pages_added:
+                results_serpentined.append(results_reader[i]._asdict())
+                pages_added.add(page)
 
-    qid = None
+    return jsonify({'results': results_serpentined, 'qid': qid})
+
+
+def fetch_morelike_results(lang, title, k, offset=0):
+    morelike_url = f"https://{lang}.wikipedia.org/w/api.php"
+    params = {'action': 'query',
+              'prop': 'pageprops',
+              'ppprop': 'wikibase_item',
+              'generator': 'search',
+              'gsrlimit': k,
+              'gsroffset': offset,
+              'gsrsearch': f'morelike:{title}',
+              'gsrprop': '',
+              'format': 'json'}
+    response = requests.get(morelike_url, params=params, headers={'User-Agent': app.config['CUSTOM_UA']})
+    results = response.json()
+    pages = []
+    redlink = False
+    for page in results.get('query', {}).get('pages', {}).values():
+        page_title = page.get('title')
+        page_qid = page.get('pageprops', {}).get('wikibase_item')
+        pages.append(ResultRecord(page_title, page_qid, 'morelike', redlink))
+    return pages
+
+def fetch_reader_results(lang, qid, k, offset=0):
+    reader_url = "https://reader.wmcloud.org/api/v1/list-reader"
+    params = {'lang': lang,
+              'qid': qid,
+              'k': offset+k}
+    response = requests.get(reader_url, params=params, headers={'User-Agent': app.config['CUSTOM_UA']})
+    results = response.json()
+    pages = []
+    for page in results[offset:]:
+        page_title = page.get('title').replace('_', ' ')
+        page_qid = page.get('qid')
+        redlink = False
+        if page_title == '-':
+            redlink = True
+            if page_qid:
+                page_title = qid_to_title(page_qid, lang)
+        pages.append(ResultRecord(page_title, page_qid, 'reader', redlink))
+    return pages
+
+def fetch_links_results(lang, qid, k, offset=0):
+    links_url = "https://content-similarity-outlinks.wmcloud.org/api/v1/outlinks"
+    params = {'lang': lang,
+              'qid': qid,
+              'k': offset+k}
+    response = requests.get(links_url, params=params, headers={'User-Agent': app.config['CUSTOM_UA']})
+    results = response.json()
+    pages = []
+    for page in results[offset:]:
+        page_title = page.get('title')
+        page_qid = page.get('qid')
+        redlink = False
+        if page_title == '-':
+            redlink = True
+            if page_qid:
+                page_title = qid_to_title(page_qid, lang)
+        pages.append(ResultRecord(page_title, page_qid, 'links', redlink))
+    return pages
+
+def set_qid():
     if 'qid' in request.args:
-        if validate_qid(request.args['qid'].upper()):
-            qid = request.args['qid'].upper()
-    k = 12
-    if 'k' in request.args:
-        if validate_k(request.args['k']):
-            k = int(request.args['k'])
+        qid = request.args['qid'].upper()
+        if re.match('^Q[0-9]+$', qid):
+            return qid
+    return None
 
-    return lang, qid, k
+def set_lang():
+    if 'lang' in request.args:
+        lang = request.args['lang'].lower()
+        if lang in WIKIPEDIA_LANGUAGES:
+            return lang
+    return None
+
+def set_k(source='reader'):
+    k = 10
+    if f'k-{source}' in request.args:
+        try:
+            arg_k = int(request.args[f'k-{source}'])
+            if arg_k >= 1:
+                k = arg_k
+        except ValueError:
+            pass
+    return k
+
+def set_offset(source='reader'):
+    offset = 0
+    if f'offset-{source}' in request.args:
+        try:
+            arg_offset = int(request.args[f'offset-{source}'])
+            if arg_offset >= 1:
+                offset = arg_offset
+        except ValueError:
+            pass
+    return offset
+
+def set_title():
+    if 'page_title' in request.args:
+        title = request.args['page_title']
+    elif 'title' in request.args:
+        title = request.args['title']
+    else:
+        title = None
+
+    if title:
+        title = title.replace('_', ' ').strip()
+        try:
+            title = title[0].capitalize() + title[1:]
+        except IndexError:
+            title = None
+    return title
+
+def title_to_qid(lang, title):
+    """Get Wikidata item ID for a given Wikipedia article"""
+
+    pageprops_url = f"https://{lang}.wikipedia.org/w/api.php"
+    params = {'action': 'query',
+              'prop': 'pageprops',
+              'ppprop': 'wikibase_item',
+              'redirects': True,
+              'titles': title,
+              'format': 'json',
+              'formatversion': 2}
+    response = requests.get(pageprops_url, params=params, headers={'User-Agent': app.config['CUSTOM_UA']})
+    result = response.json()
+
+    try:
+        return result['query']['pages'][0]['pageprops']['wikibase_item']
+    except (KeyError, IndexError):
+        return None
+
+def qid_to_title(qid, lang):
+    """Get Wikidata item ID for a given Wikipedia article"""
+
+    labels_url = "https://wikidata.org/w/api.php"
+    params = {'action': 'wbgetentities',
+              'ids': qid,
+              'props': 'labels',
+              'languages': lang,
+              'format': 'json',
+              'formatversion': 2}
+    response = requests.get(labels_url, params=params, headers={'User-Agent': app.config['CUSTOM_UA']})
+    print(response.request.url)
+    result = response.json()
+
+    try:
+        return result['entities'][qid]['labels'][lang]['value']
+    except (KeyError, IndexError):
+        print(result)
+        return '-'
