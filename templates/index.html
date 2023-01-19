@@ -114,6 +114,7 @@
 	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/datatables.net/2.1.1/jquery.dataTables.min.js"></script>
 	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/datatables.net-select/1.4.0/dataTables.select.min.js"></script>
 	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/datatables.net-buttons/2.2.3/js/dataTables.buttons.min.js"></script>
+	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/datatables.net-buttons/2.2.3/js/buttons.html5.min.js"></script>
 	<script type="text/javascript">
 		$(document).ready(function() {
 			$('form label.placeholder').each(function() {
@@ -204,7 +205,8 @@
 								action: function ( e, dt, node, config ) {
 									queryListBuildingModels();
 								}
-							}
+							},
+							'copy'
 						]
 					} );
 				}
