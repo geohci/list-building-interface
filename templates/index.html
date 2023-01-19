@@ -175,14 +175,14 @@
 				}
 				if ( ! $.fn.DataTable.isDataTable( '#results-table' ) ) {
 					var table_html = '<table id="results-table" class="display">';
-					table_html += '<thead><tr><th>Page</th><th>Item ID</th></tr></thead>';
+					table_html += '<thead><tr><th>Page</th><th>Item ID</th><th>Source</th></tr></thead>';
 					table_html += '</table>';
 					$("#results").append(table_html);
 					var table = $('#results-table').DataTable( {
 						columns: [
 							{data: "Page", "render": {sort: "sort", display: "display", _: "sort"}},
 							{data: "Item ID", "render": {sort: "sort", display: "display", _: "sort"}},
-							{data: "_source", visible: false},
+							{data: "_source", visible: true},
 						],
 						searching: false,
 						scrollY: "600px",
@@ -197,6 +197,12 @@
 								text: 'Remove selected pages',
 								action: function () {
 									table.rows({selected: true}).remove().draw();
+								}
+							},
+							{
+								text: 'Get next set',
+								action: function ( e, dt, node, config ) {
+									queryListBuildingModels();
 								}
 							}
 						]

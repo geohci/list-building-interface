@@ -225,15 +225,20 @@ def qid_to_title(qid, lang):
     params = {'action': 'wbgetentities',
               'ids': qid,
               'props': 'labels',
-              'languages': lang,
               'format': 'json',
               'formatversion': 2}
     response = requests.get(labels_url, params=params, headers={'User-Agent': app.config['CUSTOM_UA']})
-    print(response.request.url)
     result = response.json()
 
     try:
-        return result['entities'][qid]['labels'][lang]['value']
+        labels = result['entities'][qid]['labels']
+        if lang in labels:
+            return labels[lang]['value']
+        elif 'en' in labels:
+            return labels['en']['value']
+        else:  # still try to return something if not in requested language or English
+            first_lang = list(labels.keys())[0]
+            return labels[first_lang]['value']
     except (KeyError, IndexError):
-        print(result)
-        return '-'
+        pass
+    return '-'
