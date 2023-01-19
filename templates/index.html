@@ -225,14 +225,14 @@
 			if (query_page == results_page) {
 				return sessionStorage.getItem("seed-qid");
 			} else {
-				$("#results-table").empty();
+				$("#results").empty();
 				sessionStorage.clear();
 				sessionStorage.setItem("seed-page", query_page);
 				sessionStorage.setItem("offset-reader", 0);
 				sessionStorage.setItem("offset-links", 0);
 				sessionStorage.setItem("offset-morelike", 0);
 				sessionStorage.setItem("pages", JSON.stringify(new Array()));
-				$("#results-table").append('<br><h3><a href="' + query_page + '">' + document.getElementById('lang').value + ":" + document.getElementById('page_title').value + '</a></h3>');
+				$("#results").append('<br><h3><a href="' + query_page + '">' + document.getElementById('lang').value + ":" + document.getElementById('page_title').value + '</a></h3>');
 				return "";
 			}
 		}
