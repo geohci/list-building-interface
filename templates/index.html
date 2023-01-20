@@ -140,6 +140,7 @@
 		});
 
 		var render_list = function(data) {
+			var source_to_explanation = {'reader':'read in similar sessions', 'links':'link to similar articles', 'morelike':'contain similar words'}
 			if ("qid" in data) {
 				sessionStorage.setItem("seed-qid", data["qid"]);
 			}
@@ -170,20 +171,20 @@
 						}
 						row['Page'] = {'display': display_title, 'sort':reader_offset + links_offset + morelike_offset};
 						row['Item ID'] = {'display': '<a href="https://wikidata.org/wiki/' + data["results"][p_idx]["qid"] + '">' + data["results"][p_idx]["qid"] + '</a>', 'sort': parseInt(data["results"][p_idx]["qid"].substring(1))};
-						row['_source'] = data["results"][p_idx]["source"];
+						row['Explanation'] = {'display':source_to_explanation[data["results"][p_idx]["source"]], 'filter':data["results"][p_idx]["source"]};
 						table_data.push(row);
 					}
 				}
 				if ( ! $.fn.DataTable.isDataTable( '#results-table' ) ) {
 					var table_html = '<table id="results-table" class="display">';
-					table_html += '<thead><tr><th>Page</th><th>Item ID</th><th>Source</th></tr></thead>';
+					table_html += '<thead><tr><th>Wikipedia Article</th><th>Wikidata Item</th><th>Why Similar?</th></tr></thead>';
 					table_html += '</table>';
 					$("#results").append(table_html);
 					var table = $('#results-table').DataTable( {
 						columns: [
 							{data: "Page", "render": {sort: "sort", display: "display", _: "sort"}},
 							{data: "Item ID", "render": {sort: "sort", display: "display", _: "sort"}},
-							{data: "_source", visible: true},
+							{data: "Explanation", visible: true, "render":{display:"display", filter:"filter"}},
 						],
 						searching: false,
 						scrollY: "600px",
@@ -266,11 +267,11 @@
 				var table = $('#results-table').DataTable();
 				table.rows().every( function ( rowIdx, tableLoop, rowLoop ) {
 					var d = this.data();
-					if (d["_source"] == 'reader') {
+					if (d["Explanation"]['filter'] == 'reader') {
 						reader_kept++;
-					} else if (d["_source"] == 'links') {
+					} else if (d["Explanation"]['filter'] == 'links') {
 						links_kept++;
-					} else if (d["_source"] == 'morelike') {
+					} else if (d["Explanation"]['filter'] == 'morelike') {
 						morelike_kept++;
 					}
 				} );
@@ -300,6 +301,7 @@
 							  }
 				  );
 			}
+			// Local development: http://127.0.0.1:5000/api/serpentine?lang=
 			var listUrl = "https://list-building.toolforge.org/api/serpentine?lang=" + document.getElementById('lang').value + "&title=" + document.getElementById('page_title').value + "&qid=" + clear_or_get_qid() + get_offsets() + get_ks();
 			$.ajax(listUrl, {success: function(jqxmlhr, status, error){render_list(jqxmlhr)},
 							  error: function(jqxmlhr, status, error){console.log(status + ": " + error)},
