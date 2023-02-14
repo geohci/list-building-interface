@@ -146,6 +146,14 @@
 			}
 		}
 
+		var generate_permalink = function() {
+			var result_url = 'https://list-building.toolforge.org/';
+			result_url = result_url + '?lang=' + document.getElementById('lang').value;
+			result_url = result_url + '&title=' + document.getElementById('page_title').value;
+			result_url = result_url + '&k-results=' + document.getElementById('k').value;
+			return result_url;
+		}
+
 		var render_list = function(data) {
 			var source_to_explanation = {'reader':'read in similar sessions', 'links':'link to similar articles', 'morelike':'contain similar words'}
 			if ("qid" in data) {
@@ -187,6 +195,7 @@
 					table_html += '<thead><tr><th>Wikipedia Article</th><th>Wikidata Item</th><th>Why Similar?</th></tr></thead>';
 					table_html += '</table>';
 					$("#results").append(table_html);
+					$("#results").append("<p>Share this starting query: " + generate_permalink() + "</p>");
 					var table = $('#results-table').DataTable( {
 						columns: [
 							{data: "Page", "render": {sort: "sort", display: "display", _: "sort"}},
@@ -194,8 +203,9 @@
 							{data: "Explanation", visible: true, "render":{display:"display", filter:"filter"}},
 						],
 						searching: false,
-						scrollY: "600px",
 						paging: false,
+						scrollY: '600px',
+						scrollCollapse: true,
 						order: [[0, 'asc']],
 						select: {
 							style: 'multi'
