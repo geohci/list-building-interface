@@ -31,7 +31,7 @@ ResultRecord = namedtuple('ResultRecord', ['page_title', 'qid', 'source', 'redli
 @app.route('/')
 def index():
     return render_template('index.html',
-                           page_title=set_title(), lang=set_lang(), k=set_k())
+                           page_title=set_title(), lang=set_lang(), k=set_k('results'))
 
 
 @app.route('/compare')
