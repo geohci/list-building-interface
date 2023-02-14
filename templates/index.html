@@ -139,6 +139,12 @@
 		   e.preventDefault(); queryListBuildingModels();
 		});
 
+		window.onload = function() {
+			if (document.getElementById('lang').value && document.getElementById('page_title').value) {
+				queryListBuildingModels();
+			}
+		}
+
 		var render_list = function(data) {
 			var source_to_explanation = {'reader':'read in similar sessions', 'links':'link to similar articles', 'morelike':'contain similar words'}
 			if ("qid" in data) {
