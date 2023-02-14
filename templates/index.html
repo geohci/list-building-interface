@@ -115,6 +115,7 @@
 	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/datatables.net-select/1.4.0/dataTables.select.min.js"></script>
 	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/datatables.net-buttons/2.2.3/js/dataTables.buttons.min.js"></script>
 	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/datatables.net-buttons/2.2.3/js/buttons.html5.min.js"></script>
+	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/datatables.net-buttons/2.3.4/js/buttons.colVis.min.js"></script>
 	<script type="text/javascript">
 		$(document).ready(function() {
 			$('form label.placeholder').each(function() {
@@ -213,7 +214,13 @@
 									queryListBuildingModels();
 								}
 							},
-							'copy'
+							{
+								extend: 'copy',
+								exportOptions: {
+									columns: ':visible'
+								}
+							},
+							'colvis'
 						]
 					} );
 				}
