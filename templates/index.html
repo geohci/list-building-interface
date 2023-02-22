@@ -186,21 +186,23 @@
 						}
 						row['Page'] = {'display': display_title, 'sort':reader_offset + links_offset + morelike_offset};
 						row['Item ID'] = {'display': '<a href="https://wikidata.org/wiki/' + data["results"][p_idx]["qid"] + '">' + data["results"][p_idx]["qid"] + '</a>', 'sort': parseInt(data["results"][p_idx]["qid"].substring(1))};
+						row['Description'] = data["results"][p_idx]["description"] || "";
 						row['Explanation'] = {'display':source_to_explanation[data["results"][p_idx]["source"]], 'filter':data["results"][p_idx]["source"]};
 						table_data.push(row);
 					}
 				}
 				if ( ! $.fn.DataTable.isDataTable( '#results-table' ) ) {
 					var table_html = '<table id="results-table" class="display">';
-					table_html += '<thead><tr><th>Wikipedia Article</th><th>Wikidata Item</th><th>Why Similar?</th></tr></thead>';
+					table_html += '<thead><tr><th>Wikipedia Article</th><th>Wikidata Item</th><th>Description</th><th>Why Similar?</th></tr></thead>';
 					table_html += '</table>';
 					$("#results").append(table_html);
 					$("#results").append("<p>Share this starting query: " + generate_permalink() + "</p>");
 					var table = $('#results-table').DataTable( {
 						columns: [
 							{data: "Page", "render": {sort: "sort", display: "display", _: "sort"}},
-							{data: "Item ID", "render": {sort: "sort", display: "display", _: "sort"}},
-							{data: "Explanation", visible: true, "render":{display:"display", filter:"filter"}},
+							{data: "Item ID", visible: true, "render": {sort: "sort", display: "display", _: "sort"}},
+						    {data: "Description", visible: true},
+							{data: "Explanation", visible: true, "render": {display: "display", filter: "filter", _: "display"}},
 						],
 						searching: false,
 						paging: false,

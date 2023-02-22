@@ -85,7 +85,31 @@ def query_apis():
                 results_serpentined.append(results_reader[i]._asdict())
                 pages_added.add(page)
 
+    add_wikidata_descriptions(lang, results_serpentined)
+
     return jsonify({'results': results_serpentined, 'qid': qid})
+
+def add_wikidata_descriptions(lang, pages):
+    """Add Wikidata descriptions to results for easier scanning."""
+    # Example query:
+    # https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q2084556|Q15985294&props=descriptions&languages=en&format=json
+    qids_to_page_idx = {page['qid']:i for i, page in enumerate(pages) if page['qid']}
+    max_per_query = 50
+    for idx in range(0, len(qids_to_page_idx), max_per_query):
+        qid_set = [qid for qid in qids_to_page_idx if qids_to_page_idx[qid] >= idx and qids_to_page_idx[qid] < idx+max_per_query]
+        wikibase_url = "https://www.wikidata.org/w/api.php"
+        params = {'action': 'wbgetentities',
+                  'ids': '|'.join(qid_set),
+                  'props': 'descriptions',
+                  'languages': lang,
+                  'format': 'json'}
+        response = requests.get(wikibase_url, params=params, headers={'User-Agent': app.config['CUSTOM_UA']})
+        results = response.json()
+        for item in results.get('entities', {}).values():
+            qid = item.get('id')
+            wikidata_description = item.get('descriptions', {}).get(lang, {}).get('value')
+            if wikidata_description and qid in qids_to_page_idx:
+                pages[qids_to_page_idx[qid]]['description'] = wikidata_description
 
 
 def fetch_morelike_results(lang, title, k, offset=0):
