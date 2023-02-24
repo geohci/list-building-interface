@@ -185,7 +185,11 @@
 							var display_title = '<a href="https://' + lang + '.wikipedia.org/wiki/' + data["results"][p_idx]["page_title"] + '">' + data["results"][p_idx]["page_title"] + "</a>";
 						}
 						row['Page'] = {'display': display_title, 'sort':reader_offset + links_offset + morelike_offset};
-						row['Item ID'] = {'display': '<a href="https://wikidata.org/wiki/' + data["results"][p_idx]["qid"] + '">' + data["results"][p_idx]["qid"] + '</a>', 'sort': parseInt(data["results"][p_idx]["qid"].substring(1))};
+						if (data["results"][p_idx]["qid"]) {
+							row['Item ID'] = {'display': '<a href="https://wikidata.org/wiki/' + data["results"][p_idx]["qid"] + '">' + data["results"][p_idx]["qid"] + '</a>', 'sort': parseInt(data["results"][p_idx]["qid"].substring(1))};
+						} else {
+							row['Item ID'] = {'display':'No Item', 'sort':-1}
+						}
 						row['Description'] = data["results"][p_idx]["description"] || "";
 						row['Explanation'] = {'display':source_to_explanation[data["results"][p_idx]["source"]], 'filter':data["results"][p_idx]["source"]};
 						table_data.push(row);
