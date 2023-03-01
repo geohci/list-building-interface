@@ -46,22 +46,33 @@ def query_apis():
     lang = set_lang()
     title = set_title()
     qid = set_qid()
-    if qid is None:
-        qid = title_to_qid(lang=lang, title=title)
+    if lang == 'wikidata':
+        lang = 'en'
+        if not qid:
+            qid = title
+        morelike = False
+    else:
+        morelike = True
+        if qid is None:
+            qid = title_to_qid(lang=lang, title=title)
 
     # TODO: actually incorporate offsets on backend for reader/link requests instead of hacking and update this code
     try:
         results_links = fetch_links_results(lang=lang, qid=qid, k=set_k('links'), offset=set_offset('links'))
     except Exception:
         results_links = []
-    try:
-        results_morelike = fetch_morelike_results(lang=lang, title=title, k=set_k('morelike'), offset=set_offset('morelike'))
-    except Exception:
-        results_morelike = []
+
     try:
         results_reader = fetch_reader_results(lang=lang, qid=qid, k=set_k('reader'), offset=set_offset('reader'))
     except Exception:
         results_reader = []
+
+    results_morelike = []
+    if morelike:
+        try:
+            results_morelike = fetch_morelike_results(lang=lang, title=title, k=set_k('morelike'), offset=set_offset('morelike'))
+        except Exception:
+            pass
 
     results_serpentined = []
     pages_added = set([qid, title])
@@ -182,6 +193,8 @@ def set_lang():
     if 'lang' in request.args:
         lang = request.args['lang'].lower()
         if lang in WIKIPEDIA_LANGUAGES:
+            return lang
+        elif lang == 'wikidata':
             return lang
     return None
 

@@ -39,7 +39,7 @@
 					</div>
 					<div class="description padded--right">
 						<p>This tool allows one to build a list of related articles to a "seed" based on various models.</p>
-						<p>Enter a language code and Wikipedia article title below. If you leave the title field blank, the UI will select a random article in that language to evaluate.</p>
+						<p>Either enter a language code (e.g., <i>en</i>) and Wikipedia article title (e.g., <i>Climate change</i>) below or <i>wikidata</i> and a Wikidata item ID (e.g., <i>Q125928</i>). If you leave the title/ID field blank, the UI will select a random article in that language to evaluate.</p>
 					</div>
 				</div>
 			</header>
@@ -54,22 +54,22 @@
 						<div class="cols cols8">
 							<div class="col col3">
 								{% if lang %}
-								<label class="placeholder"><span class="field_name">Language code -- e.g., en for English</span>
+								<label class="placeholder"><span class="field_name">Language code -- e.g., en or wikidata</span>
 									<input type="text" value="{{lang}}" placeholder="Placeholder text" id="lang"/>
 								</label>
 								{% else %}
-								<label class="placeholder"><span class="field_name">Language code -- e.g., en for English</span>
+								<label class="placeholder"><span class="field_name">Language code -- e.g., en or wikidata</span>
 									<input type="text" value="" placeholder="Placeholder text" id="lang"/>
 								</label>
 								{% endif %}
 							</div>
 							<div class="col col3">
 								{% if page_title %}
-								<label class="placeholder"><span class="field_name">Page title -- e.g., Douglas Adams</span>
+								<label class="placeholder"><span class="field_name">Page title -- e.g., Douglas Adams or Q42</span>
 									<input type="text" value="{{page_title}}" placeholder="Placeholder text" id="page_title"/>
 								</label>
 								{% else %}
-								<label class="placeholder"><span class="field_name">Page title -- e.g., Douglas Adams</span>
+								<label class="placeholder"><span class="field_name">Page title -- e.g., Douglas Adams or Q42</span>
 									<input type="text" value="" placeholder="Placeholder text" id="page_title"/>
 								</label>
 								{% endif %}
@@ -149,9 +149,83 @@
 		var generate_permalink = function() {
 			var result_url = 'https://list-building.toolforge.org/';
 			result_url = result_url + '?lang=' + document.getElementById('lang').value;
-			result_url = result_url + '&title=' + document.getElementById('page_title').value;
+			result_url = result_url + '&title=' + document.getElementById('page_title').value.replaceAll(' ', '_');
 			result_url = result_url + '&k-results=' + document.getElementById('k').value;
 			return result_url;
+		}
+
+		var add_pagepile_id = function(data) {
+			var ppid = data['pile']['id'];
+			sessionStorage.setItem("page-pile", ppid);
+			$("#links").empty();
+			$("#links").append('<li>Starting query: ' + generate_permalink() + "</li>");
+			var pphtml = '<li><a href="https://pagepile.toolforge.org/api.php?action=get_data&id=' + ppid  + '" target="_blank">Pagepile ID ' + ppid + '</a>';
+			pphtml += ' (or view it on <a href="https://pageviews.wmcloud.org/massviews/?source=pagepile&target=' + ppid + '" target="_blank">Massviews</a>)</li>';
+			$("#links").append(pphtml);
+		}
+
+		var generate_pagepile = function(source) {
+			pagepile_url = 'https://pagepile.toolforge.org/api.php';
+			var data = {'action': 'create_pile_with_data'};
+			if (source == 'wikidata' || document.getElementById('lang').value == 'wikidata') {
+				data['wiki'] = 'wikdatawiki';
+				// each line is tab-delimited and contains the page title optionally followed by namespace (or -999 for auto-detect)
+				data['data'] = get_qids().map(q => q + '\t0').join('\n');
+			} else if (source == 'wikipedia') {
+				data['wiki'] = document.getElementById('lang').value + 'wiki';
+				data['data'] = get_titles().map(t => t + '\t0').join('\n');
+ 			}
+			$.ajax(pagepile_url, {
+				data: data,
+				success: add_pagepile_id.bind(this),
+				error: function(jqxmlhr, status, error){console.log(status + ": " + error)},
+				}
+			);
+		}
+
+		var get_qids = function() {
+			var qids = [];
+			var table = $('#results-table').DataTable();
+			if (table) {
+				table.rows().every( function ( rowIdx, tableLoop, rowLoop ) {
+					var d = this.data();
+					if (d["Item ID"]['sort'] > 0) {
+						qids.push('Q' + d["Item ID"]['sort']);
+					}
+				} );
+			}
+			return qids
+		}
+
+		var get_titles = function() {
+			var pages = [];
+			var table = $('#results-table').DataTable();
+			if (table) {
+				table.rows().every( function ( rowIdx, tableLoop, rowLoop ) {
+					var d = this.data();
+					var pagetitle = d["Page"]['name'];
+					if (!pagetitle.endsWith('(redlink)')) {
+						pages.push(pagetitle);
+					}
+				} );
+			}
+			return pages
+		}
+
+		var generatePetscanLink = function() {
+			// https://petscan.wmflabs.org/?manual_list=Q42%0D%0AQ50&interface_language=en&language=en&manual_list_wiki=wikidatawiki&doit=
+			var petscan_url = 'https://petscan.wmflabs.org/?manual_list_wiki=wikidatawiki&doit=';
+			var lang = document.getElementById('lang').value;
+			if (lang == 'wikidata') {
+				lang = 'en'
+			}
+			petscan_url = petscan_url + '&interface_language=' + lang;
+			petscan_url = petscan_url + '&language=' + lang;
+			var qid_str = get_qids().join(encodeURI('\r\n'));
+			if (qid_str.length > 0) {
+				petscan_url = petscan_url + '&manual_list=' + qid_str;
+			}
+			return petscan_url;
 		}
 
 		var render_list = function(data) {
@@ -162,6 +236,9 @@
 			if (data["results"].length > 0) {
 				var table_data = [];
 				var lang = document.getElementById('lang').value;
+				if (lang == 'wikidata') {
+					lang = 'en';
+				}
 				var seen_pages = JSON.parse(sessionStorage.getItem("pages"));
 				var reader_offset = parseInt(sessionStorage.getItem('offset-reader'));
 				var links_offset = parseInt(sessionStorage.getItem('offset-links'));
@@ -181,10 +258,12 @@
 						var row = {};
 						if (data["results"][p_idx]["redlink"]) {
 							var display_title = data["results"][p_idx]["page_title"] + " (redlink)";
+							var page_title = display_title;
 						} else {
 							var display_title = '<a href="https://' + lang + '.wikipedia.org/wiki/' + data["results"][p_idx]["page_title"] + '">' + data["results"][p_idx]["page_title"] + "</a>";
+							var page_title = data["results"][p_idx]["page_title"];
 						}
-						row['Page'] = {'display': display_title, 'sort':reader_offset + links_offset + morelike_offset};
+						row['Page'] = {'display': display_title, 'sort':reader_offset + links_offset + morelike_offset, 'name':page_title};
 						if (data["results"][p_idx]["qid"]) {
 							row['Item ID'] = {'display': '<a href="https://wikidata.org/wiki/' + data["results"][p_idx]["qid"] + '">' + data["results"][p_idx]["qid"] + '</a>', 'sort': parseInt(data["results"][p_idx]["qid"].substring(1))};
 						} else {
@@ -197,10 +276,9 @@
 				}
 				if ( ! $.fn.DataTable.isDataTable( '#results-table' ) ) {
 					var table_html = '<table id="results-table" class="display">';
-					table_html += '<thead><tr><th>Wikipedia Article</th><th>Wikidata Item</th><th>Description</th><th>Why Similar?</th></tr></thead>';
+					table_html += '<thead><tr><th>Wikipedia Article (' + lang + ')</th><th>Wikidata Item</th><th>Description</th><th>Why Similar?</th></tr></thead>';
 					table_html += '</table>';
 					$("#results").append(table_html);
-					$("#results").append("<p>Share this starting query: " + generate_permalink() + "</p>");
 					var table = $('#results-table').DataTable( {
 						columns: [
 							{data: "Page", "render": {sort: "sort", display: "display", _: "sort"}},
@@ -218,6 +296,7 @@
 						},
 						dom: 'Bfrtip',
 						buttons: [
+							'colvis',
 							{
 								text: 'Remove selected pages',
 								action: function () {
@@ -232,11 +311,31 @@
 							},
 							{
 								extend: 'copy',
+								text: 'Copy table',
+								title: 'Starting query: ' + generate_permalink(),
 								exportOptions: {
 									columns: ':visible'
 								}
 							},
-							'colvis'
+							{
+								extend: 'copy',
+								text: 'Copy Petscan link',
+								customize: function (data_str, config, dt) {
+									return generatePetscanLink();
+								}
+							},
+							{
+								text: 'Save articles to Pagepile',
+								action: function ( e, dt, node, config ) {
+									generate_pagepile('wikipedia');
+								}
+							},
+							{
+								text: 'Save items to Pagepile',
+								action: function ( e, dt, node, config ) {
+									generate_pagepile('wikidata');
+								}
+							}
 						]
 					} );
 				}
@@ -250,7 +349,12 @@
 		}
 
 		function clear_or_get_qid() {
-			var query_page = "https://" + document.getElementById('lang').value + ".wikipedia.org/wiki/" + document.getElementById('page_title').value;
+			var lang = document.getElementById('lang').value;
+			var title = document.getElementById('page_title').value;
+			var query_page = "https://" + lang + ".wikipedia.org/wiki/" + title;
+			if (lang == 'wikidata') {
+				query_page = 'https://www.wikidata.org/wiki/' + title;
+			}
 			var results_page = sessionStorage.getItem("seed-page");
 			if (query_page == results_page) {
 				return sessionStorage.getItem("seed-qid");
@@ -262,7 +366,8 @@
 				sessionStorage.setItem("offset-links", 0);
 				sessionStorage.setItem("offset-morelike", 0);
 				sessionStorage.setItem("pages", JSON.stringify(new Array()));
-				$("#results").append('<br><h3><a href="' + query_page + '">' + document.getElementById('lang').value + ":" + document.getElementById('page_title').value + '</a></h3>');
+				$("#results").append('<h3><a href="' + query_page + '">' + lang + ":" + title + '</a></h3>');
+				$("#results").append('<div id="links"><li>Starting query: ' + generate_permalink() + "</li></div>");
 				return "";
 			}
 		}
@@ -322,8 +427,13 @@
 		}
 
 		function queryListBuildingModels() {
-			if (document.getElementById('lang').value && !document.getElementById('page_title').value) {
-				var randomPageQueryURL = "https://" + document.getElementById('lang').value + ".wikipedia.org/w/api.php?action=query&format=json&list=random&rnlimit=1&rnnamespace=0&origin=*";
+			var lang = document.getElementById('lang').value;
+			if (lang && !document.getElementById('page_title').value) {
+				if (lang == 'wikidata') {
+					var randomPageQueryURL = "https://www.wikidata.org/w/api.php?action=query&format=json&list=random&rnlimit=1&rnnamespace=0&origin=*";
+				} else {
+					var randomPageQueryURL = "https://" + lang + ".wikipedia.org/w/api.php?action=query&format=json&list=random&rnlimit=1&rnnamespace=0&origin=*";
+				}
 				$.ajax(randomPageQueryURL, {success: update_title.bind(this),
 							  error: function(jqxmlhr, status, error){console.log(status + ": " + error)},
 							  async: false
@@ -331,7 +441,7 @@
 				  );
 			}
 			// Local development: http://127.0.0.1:5000/api/serpentine?lang=
-			var listUrl = "https://list-building.toolforge.org/api/serpentine?lang=" + document.getElementById('lang').value + "&title=" + document.getElementById('page_title').value + "&qid=" + clear_or_get_qid() + get_offsets() + get_ks();
+			var listUrl = "https://list-building.toolforge.org/api/serpentine?lang=" + lang + "&title=" + document.getElementById('page_title').value + "&qid=" + clear_or_get_qid() + get_offsets() + get_ks();
 			$.ajax(listUrl, {success: function(jqxmlhr, status, error){render_list(jqxmlhr)},
 							  error: function(jqxmlhr, status, error){console.log(status + ": " + error)},
 							  }
