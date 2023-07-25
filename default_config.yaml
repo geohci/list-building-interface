@@ -5,4 +5,4 @@ PREFERRED_URL_SCHEME: https
 DEBUG: False
 
 # UA to be used by
-# CUSTOM_UA: "wiki-topic (toolforge) -- <your-email-address>"
+CUSTOM_UA: "wiki-topic (toolforge) -- isaac@wikimedia.org"

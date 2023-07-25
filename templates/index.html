@@ -11,6 +11,7 @@
 	<link href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/datatables/1.10.21/css/jquery.dataTables.min.css" rel="stylesheet" type="text/css">
 	<link href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/datatables.net-select-dt/1.4.0/select.dataTables.min.css" rel="stylesheet" type="text/css">
 	<link href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/datatables.net-buttons-dt/2.2.3/buttons.dataTables.min.css" rel="stylesheet" type="text/css">
+	<link href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/jqueryui/1.13.2/themes/base/jquery-ui.min.css" rel="stylesheet" type="text/css">
 	<link rel="stylesheet" href="./static/style.css" />
 
 </head>
@@ -110,7 +111,8 @@
 		</div>
 	</footer>
 
-	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/jquery/3.5.0/jquery.min.js"></script>
+	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
+	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js"></script>
 	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/datatables.net/2.1.1/jquery.dataTables.min.js"></script>
 	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/datatables.net-select/1.4.0/dataTables.select.min.js"></script>
 	<script type="text/javascript" src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/datatables.net-buttons/2.2.3/js/dataTables.buttons.min.js"></script>
@@ -146,6 +148,34 @@
 			}
 		}
 
+		$( function() {
+			$( "#page_title" ).autocomplete({
+				source: function( request, response ) {
+					$.ajax( {
+						url: "https://" + document.getElementById('lang').value + ".wikipedia.org/w/api.php",
+						data: {
+							action: "opensearch",
+							search: request.term,
+							limit: 5,
+							namespace: 0,
+							format: "json",
+							origin: "*"
+						},
+						success: function(data) {
+							response($.map( data[1], function( item ) {
+								return {
+									label: item,
+									value: item
+								}
+							}));
+						}
+					} );
+				},
+				minLength: 2,
+				delay: 300  // milliseconds
+			} );
+		});
+
 		var generate_permalink = function() {
 			var result_url = 'https://list-building.toolforge.org/';
 			result_url = result_url + '?lang=' + document.getElementById('lang').value;
@@ -160,7 +190,7 @@
 			$("#links").empty();
 			$("#links").append('<li>Starting query: ' + generate_permalink() + "</li>");
 			var pphtml = '<li><a href="https://pagepile.toolforge.org/api.php?action=get_data&id=' + ppid  + '" target="_blank">Pagepile ID ' + ppid + '</a>';
-			pphtml += ' (or view it on <a href="https://pageviews.wmcloud.org/massviews/?source=pagepile&target=' + ppid + '" target="_blank">Massviews</a>)</li>';
+			pphtml += ' (or view it on <a href="https://petscan.wmflabs.org/?pagepile=' + ppid + '" target="_blank">Petscan</a> or <a href="https://pageviews.wmcloud.org/massviews/?source=pagepile&target=' + ppid + '" target="_blank">Massviews</a>)</li>';
 			$("#links").append(pphtml);
 		}
 
@@ -212,21 +242,6 @@
 			return pages
 		}
 
-		var generatePetscanLink = function() {
-			// https://petscan.wmflabs.org/?manual_list=Q42%0D%0AQ50&interface_language=en&language=en&manual_list_wiki=wikidatawiki&doit=
-			var petscan_url = 'https://petscan.wmflabs.org/?manual_list_wiki=wikidatawiki&doit=';
-			var lang = document.getElementById('lang').value;
-			if (lang == 'wikidata') {
-				lang = 'en'
-			}
-			petscan_url = petscan_url + '&interface_language=' + lang;
-			petscan_url = petscan_url + '&language=' + lang;
-			var qid_str = get_qids().join(encodeURI('\r\n'));
-			if (qid_str.length > 0) {
-				petscan_url = petscan_url + '&manual_list=' + qid_str;
-			}
-			return petscan_url;
-		}
 
 		var render_list = function(data) {
 			var source_to_explanation = {'reader':'read in similar sessions', 'links':'link to similar articles', 'morelike':'contain similar words'}
@@ -315,13 +330,6 @@
 								title: 'Starting query: ' + generate_permalink(),
 								exportOptions: {
 									columns: ':visible'
-								}
-							},
-							{
-								extend: 'copy',
-								text: 'Copy Petscan link',
-								customize: function (data_str, config, dt) {
-									return generatePetscanLink();
 								}
 							},
 							{

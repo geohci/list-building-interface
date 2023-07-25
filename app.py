@@ -57,20 +57,28 @@ def query_apis():
             qid = title_to_qid(lang=lang, title=title)
 
     # TODO: actually incorporate offsets on backend for reader/link requests instead of hacking and update this code
+    # NOTE: I double the k inputs to the models to better guarantee returning enough results after deduplicating
+    overall_k = 0
     try:
-        results_links = fetch_links_results(lang=lang, qid=qid, k=set_k('links'), offset=set_offset('links'))
+        links_k = set_k('links')
+        overall_k += links_k
+        results_links = fetch_links_results(lang=lang, qid=qid, k=links_k*2, offset=set_offset('links'))
     except Exception:
         results_links = []
 
     try:
-        results_reader = fetch_reader_results(lang=lang, qid=qid, k=set_k('reader'), offset=set_offset('reader'))
+        reader_k = set_k('reader')
+        overall_k += reader_k
+        results_reader = fetch_reader_results(lang=lang, qid=qid, k=reader_k*2, offset=set_offset('reader'))
     except Exception:
         results_reader = []
 
     results_morelike = []
     if morelike:
         try:
-            results_morelike = fetch_morelike_results(lang=lang, title=title, k=set_k('morelike'), offset=set_offset('morelike'))
+            morelike_k = set_k('morelike')
+            overall_k += morelike_k
+            results_morelike = fetch_morelike_results(lang=lang, title=title, k=morelike_k*2, offset=set_offset('morelike'))
         except Exception:
             pass
 
@@ -95,6 +103,8 @@ def query_apis():
             if page not in pages_added:
                 results_serpentined.append(results_reader[i]._asdict())
                 pages_added.add(page)
+        if len(results_serpentined) >= overall_k:
+            break
 
     add_wikidata_descriptions(lang, results_serpentined)
 
