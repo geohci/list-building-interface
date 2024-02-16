@@ -1,4 +1,3 @@
-# Many thanks to: https://wikitech.wikimedia.org/wiki/Help:Toolforge/My_first_Flask_OAuth_tool
 from collections import namedtuple
 import os
 import re
@@ -46,15 +45,8 @@ def query_apis():
     lang = set_lang()
     title = set_title()
     qid = set_qid()
-    if lang == 'wikidata':
-        lang = 'en'
-        if not qid:
-            qid = title
-        morelike = False
-    else:
-        morelike = True
-        if qid is None:
-            qid = title_to_qid(lang=lang, title=title)
+    if qid is None:
+        qid = title_to_qid(lang=lang, title=title)
 
     # TODO: actually incorporate offsets on backend for reader/link requests instead of hacking and update this code
     # NOTE: I double the k inputs to the models to better guarantee returning enough results after deduplicating
@@ -62,7 +54,7 @@ def query_apis():
     try:
         links_k = set_k('links')
         overall_k += links_k
-        results_links = fetch_links_results(lang=lang, qid=qid, k=links_k*2, offset=set_offset('links'))
+        results_links = fetch_links_results(lang=lang, qid=qid, title=title, k=links_k*2, offset=set_offset('links'))
     except Exception:
         results_links = []
 
@@ -74,16 +66,15 @@ def query_apis():
         results_reader = []
 
     results_morelike = []
-    if morelike:
-        try:
-            morelike_k = set_k('morelike')
-            overall_k += morelike_k
-            results_morelike = fetch_morelike_results(lang=lang, title=title, k=morelike_k*2, offset=set_offset('morelike'))
-        except Exception:
-            pass
+    try:
+        morelike_k = set_k('morelike')
+        overall_k += morelike_k
+        results_morelike = fetch_morelike_results(lang=lang, title=title, k=morelike_k*2, offset=set_offset('morelike'))
+    except Exception:
+        pass
 
     results_serpentined = []
-    pages_added = set([qid, title])
+    pages_added = {qid, title}
     # TODO: more random serpentining of sources?
     # TODO: deduplicate code
     max_num_results = max([len(results_links), len(results_morelike), len(results_reader)])
@@ -106,7 +97,12 @@ def query_apis():
         if len(results_serpentined) >= overall_k:
             break
 
+    # all results need a wikidata description to help users evaluate whether article is a match
     add_wikidata_descriptions(lang, results_serpentined)
+    # some API backends provide QIDs and not titles so here we fill in the blanks
+    add_article_titles(lang, results_serpentined)
+    # for QIDs lacking in a local article, we use a Wikidata label as back-up title
+    add_wikidata_labels(lang, results_serpentined)
 
     return jsonify({'results': results_serpentined, 'qid': qid})
 
@@ -133,6 +129,63 @@ def add_wikidata_descriptions(lang, pages):
                 pages[qids_to_page_idx[qid]]['description'] = wikidata_description
 
 
+def add_article_titles(lang, pages):
+    wiki = f'{lang}wiki'
+    qids_to_page_idx = {page['qid']: i for i, page in enumerate(pages) if page['qid'] and page['page_title'] == "-"}
+    max_per_query = 50
+    for idx in range(0, len(qids_to_page_idx), max_per_query):
+        qid_set = [qid for qid in qids_to_page_idx if
+                   qids_to_page_idx[qid] >= idx and qids_to_page_idx[qid] < idx + max_per_query]
+        wikibase_url = "https://www.wikidata.org/w/api.php"
+        params = {
+            'action': 'wbgetentities',
+            'props': 'sitelinks',
+            'format': 'json',
+            'formatversion': 2,
+            'sitefilter': wiki,
+            'ids': '|'.join(qid_set)
+        }
+        response = requests.get(wikibase_url, params=params, headers={'User-Agent': app.config['CUSTOM_UA']})
+        results = response.json()
+        for item in results.get('entities', {}).values():
+            qid = item.get('id')
+            page_title = item.get('sitelinks', {}).get(wiki, {}).get('title')
+            if page_title and qid in qids_to_page_idx:
+                pages[qids_to_page_idx[qid]]['page_title'] = page_title
+                pages[qids_to_page_idx[qid]]['redlink'] = False
+
+
+def add_wikidata_labels(lang, pages):
+    qids_to_page_idx = {page['qid']: i for i, page in enumerate(pages) if page['qid'] and page['page_title'] == "-"}
+    max_per_query = 50
+    wikibase_url = "https://www.wikidata.org/w/api.php"
+    for idx in range(0, len(qids_to_page_idx), max_per_query):
+        qid_set = [qid for qid in qids_to_page_idx if
+                   qids_to_page_idx[qid] >= idx and qids_to_page_idx[qid] < idx + max_per_query]
+        params = {
+            'action': 'wbgetentities',
+            'props': 'labels',
+            'ids': '|'.join(qid_set),
+            'format': 'json',
+            'formatversion': 2
+        }
+        response = requests.get(wikibase_url, params=params, headers={'User-Agent': app.config['CUSTOM_UA']})
+        results = response.json()
+        for item in results.get('entities', {}).values():
+            try:
+                qid = item.get('id')
+                labels = item.get('labels', {})
+                if lang in labels:
+                    pages[qids_to_page_idx[qid]]['page_title'] = labels[lang]['value']
+                elif 'en' in labels:
+                    pages[qids_to_page_idx[qid]]['page_title'] = labels['en']['value']
+                elif labels:  # still try to return something if not in requested language or English
+                    first_lang = list(labels.keys())[0]
+                    pages[qids_to_page_idx[qid]]['page_title'] = labels[first_lang]['value']
+            except (KeyError, IndexError):
+                continue
+
+
 def fetch_morelike_results(lang, title, k, offset=0):
     morelike_url = f"https://{lang}.wikipedia.org/w/api.php"
     params = {'action': 'query',
@@ -147,7 +200,7 @@ def fetch_morelike_results(lang, title, k, offset=0):
     response = requests.get(morelike_url, params=params, headers={'User-Agent': app.config['CUSTOM_UA']})
     results = response.json()
     pages = []
-    redlink = False
+    redlink = False  # local language API so article by definition exists
     for page in results.get('query', {}).get('pages', {}).values():
         page_title = page.get('title')
         page_qid = page.get('pageprops', {}).get('wikibase_item')
@@ -163,34 +216,60 @@ def fetch_reader_results(lang, qid, k, offset=0):
     results = response.json()
     pages = []
     for page in results[offset:]:
-        page_title = page.get('title').replace('_', ' ')
+        page_title = page.get('title', '-').replace('_', ' ')
         page_qid = page.get('qid')
-        redlink = False
-        if page_title == '-':
-            redlink = True
-            if page_qid:
-                page_title = qid_to_title(page_qid, lang)
+        redlink = (page_title == '-')
         pages.append(ResultRecord(page_title, page_qid, 'reader', redlink))
     return pages
 
-def fetch_links_results(lang, qid, k, offset=0):
-    links_url = "https://content-similarity-outlinks.wmcloud.org/api/v1/outlinks"
-    params = {'lang': lang,
-              'qid': qid,
-              'k': offset+k}
-    response = requests.get(links_url, params=params, headers={'User-Agent': app.config['CUSTOM_UA']})
-    results = response.json()
+def fetch_links_results(lang, qid, title, k, offset=0):
+    links_url = "https://vector-search.wmcloud.org/collections/list-building-tool/points/search"
     pages = []
-    for page in results[offset:]:
-        page_title = page.get('title')
-        page_qid = page.get('qid')
-        redlink = False
-        if page_title == '-':
-            redlink = True
-            if page_qid:
-                page_title = qid_to_title(page_qid, lang)
-        pages.append(ResultRecord(page_title, page_qid, 'links', redlink))
+    # first we get the embedding for a QID
+    embedding_lookup_params = {
+        "with_payload": True,
+        "with_vector": True,
+        "filter": {"must": [{"key": "name", "match": {"value": qid}}]},
+        # This is a required field so we're sending a dummy vector.
+        # The actual pruning happens using payload filters.
+        "vector": [0] * 50,
+        "limit": 1,
+    }
+    response = requests.post(links_url, json=embedding_lookup_params,
+                             headers={'User-Agent': app.config['CUSTOM_UA']})
+    embeddings = response.json().get("result")
+    if not embeddings:
+        emb_url = "https://content-similarity-outlinks.wmcloud.org/api/v1/embedding"
+        params = {'lang': lang,
+                  'qid': qid,
+                  'title': title}
+        response = requests.get(emb_url, params=params, headers={'User-Agent': app.config['CUSTOM_UA']})
+        embeddings = response.json()
+        if not embeddings[0]["vector"]:
+            embeddings = None
+
+    if embeddings:
+        embedding = embeddings[0]["vector"]
+        nearest_neighbors_params = {
+            "with_payload": True,
+            "with_vector": False,
+            "vector": embedding,
+            "limit": k,
+            "offset": offset,
+        }
+        response = requests.post(links_url, json=nearest_neighbors_params,
+                                 headers={'User-Agent': app.config['CUSTOM_UA']})
+        neighbors = response.json().get("result")
+        if neighbors:
+            page_title = "-"  # API doesn't provide page title so we use placeholder that will later be overwritten
+            redlink = True  # this will be set to False if a page is found in the local language
+            for page in neighbors:
+                page_qid = page.get("payload", {}).get("name")
+                if page_qid:
+                    pages.append(ResultRecord(page_title, page_qid, 'links', redlink))
+
     return pages
+
 
 def set_qid():
     if 'qid' in request.args:
