@@ -113,7 +113,7 @@ def add_wikidata_descriptions(lang, pages):
     qids_to_page_idx = {page['qid']:i for i, page in enumerate(pages) if page['qid']}
     max_per_query = 50
     for idx in range(0, len(qids_to_page_idx), max_per_query):
-        qid_set = [qid for qid in qids_to_page_idx if qids_to_page_idx[qid] >= idx and qids_to_page_idx[qid] < idx+max_per_query]
+        qid_set = [qid for i, qid in enumerate(qids_to_page_idx) if i >= idx and i < idx + max_per_query]
         wikibase_url = "https://www.wikidata.org/w/api.php"
         params = {'action': 'wbgetentities',
                   'ids': '|'.join(qid_set),
@@ -134,8 +134,7 @@ def add_article_titles(lang, pages):
     qids_to_page_idx = {page['qid']: i for i, page in enumerate(pages) if page['qid'] and page['page_title'] == "-"}
     max_per_query = 50
     for idx in range(0, len(qids_to_page_idx), max_per_query):
-        qid_set = [qid for qid in qids_to_page_idx if
-                   qids_to_page_idx[qid] >= idx and qids_to_page_idx[qid] < idx + max_per_query]
+        qid_set = [qid for i, qid in enumerate(qids_to_page_idx) if i >= idx and i < idx + max_per_query]
         wikibase_url = "https://www.wikidata.org/w/api.php"
         params = {
             'action': 'wbgetentities',
@@ -160,8 +159,7 @@ def add_wikidata_labels(lang, pages):
     max_per_query = 50
     wikibase_url = "https://www.wikidata.org/w/api.php"
     for idx in range(0, len(qids_to_page_idx), max_per_query):
-        qid_set = [qid for qid in qids_to_page_idx if
-                   qids_to_page_idx[qid] >= idx and qids_to_page_idx[qid] < idx + max_per_query]
+        qid_set = [qid for i, qid in enumerate(qids_to_page_idx) if i >= idx and i < idx + max_per_query]
         params = {
             'action': 'wbgetentities',
             'props': 'labels',
