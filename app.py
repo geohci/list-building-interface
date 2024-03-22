@@ -1,4 +1,5 @@
 from collections import namedtuple
+from concurrent import futures
 import os
 import re
 
@@ -51,49 +52,46 @@ def query_apis():
     # TODO: actually incorporate offsets on backend for reader/link requests instead of hacking and update this code
     # NOTE: I double the k inputs to the models to better guarantee returning enough results after deduplicating
     overall_k = 0
-    try:
-        links_k = set_k('links')
+    future_calls = []
+
+    links_k = set_k('links')
+    if links_k:
         overall_k += links_k
-        results_links = fetch_links_results(lang=lang, qid=qid, title=title, k=links_k*2, offset=set_offset('links'))
-    except Exception:
-        results_links = []
+        future_calls.append(('links', fetch_links_results, {'lang':lang, 'qid':qid, 'title':title, 'k':links_k*2, 'offset':set_offset('links')}))
 
-    try:
-        reader_k = set_k('reader')
+    reader_k = set_k('reader')
+    if reader_k:
         overall_k += reader_k
-        results_reader = fetch_reader_results(lang=lang, qid=qid, k=reader_k*2, offset=set_offset('reader'))
-    except Exception:
-        results_reader = []
+        future_calls.append(('reader', fetch_reader_results, {'lang':lang, 'qid':qid, 'k':reader_k*2, 'offset':set_offset('reader')}))
 
-    results_morelike = []
-    try:
-        morelike_k = set_k('morelike')
+    morelike_k = set_k('morelike')
+    if morelike_k:
         overall_k += morelike_k
-        results_morelike = fetch_morelike_results(lang=lang, title=title, k=morelike_k*2, offset=set_offset('morelike'))
-    except Exception:
-        pass
+        future_calls.append(('morelike', fetch_morelike_results, {'lang':lang, 'title':title, 'k':morelike_k*2, 'offset':set_offset('morelike')}))
+
+    results = {}
+    max_num_results = 0
+    with futures.ThreadPoolExecutor(max_workers=3) as executor:
+        get_similar_pages = {executor.submit(fn, **args): lbl for lbl, fn, args in future_calls}
+        for future in futures.as_completed(get_similar_pages):
+            lbl = get_similar_pages[future]
+            try:
+                results[lbl] = future.result()
+                max_num_results = max(len(results[lbl]), max_num_results)
+            except Exception:
+                continue
 
     results_serpentined = []
     pages_added = {qid, title}
     # TODO: more random serpentining of sources?
-    # TODO: deduplicate code
-    max_num_results = max([len(results_links), len(results_morelike), len(results_reader)])
     for i in range(0, max_num_results):
-        if i < len(results_links):
-            page = results_links[i].qid if results_links[i].qid else results_links[i].page_title
-            if page not in pages_added:
-                results_serpentined.append(results_links[i]._asdict())
-                pages_added.add(page)
-        if i < len(results_morelike):
-            page = results_morelike[i].qid if results_morelike[i].qid else results_morelike[i].page_title
-            if page not in pages_added:
-                results_serpentined.append(results_morelike[i]._asdict())
-                pages_added.add(page)
-        if i < len(results_reader):
-            page = results_reader[i].qid if results_reader[i].qid else results_reader[i].page_title
-            if page not in pages_added:
-                results_serpentined.append(results_reader[i]._asdict())
-                pages_added.add(page)
+        for algo in results:
+            if i < len(results[algo]):
+                res = results[algo][i]
+                page = res.qid if res.qid else res.page_title
+                if page not in pages_added:
+                    results_serpentined.append(res._asdict())
+                    pages_added.add(page)
         if len(results_serpentined) >= overall_k:
             break
 
@@ -104,7 +102,11 @@ def query_apis():
     # for QIDs lacking in a local article, we use a Wikidata label as back-up title
     add_wikidata_labels(lang, results_serpentined)
 
-    return jsonify({'results': results_serpentined, 'qid': qid})
+    response = {'results': results_serpentined, 'qid': qid}
+    if 'wp' in request.args:
+        response['wikiprojects'] = pages_to_wikiprojects(lang, [r['page_title'] for r in results_serpentined if not r["redlink"]])
+
+    return jsonify(response)
 
 def add_wikidata_descriptions(lang, pages):
     """Add Wikidata descriptions to results for easier scanning."""
@@ -366,3 +368,27 @@ def qid_to_title(qid, lang):
     except (KeyError, IndexError):
         pass
     return '-'
+
+def pages_to_wikiprojects(lang, titles):
+    # https://en.wikipedia.org/w/api.php?action=query&prop=pageassessments&titles=Apple|William_Y._Slack&formatversion=2&format=json&pasubprojects=true
+    pageassess_url = f"https://{lang}.wikipedia.org/w/api.php"
+    params = {'action': 'query',
+              'prop': 'pageassessments',
+              'palimit': 'max',
+              'pasubprojects': True,
+              'titles': "|".join(titles[:25]),
+              'format': 'json',
+              'formatversion': 2}
+    try:
+        response = requests.get(pageassess_url, params=params, headers={'User-Agent': app.config['CUSTOM_UA']})
+        result = response.json()
+        wps = {}
+        tagged_pages = 0
+        for page in result['query']['pages']:
+            if 'pageassessments' in page:
+                tagged_pages += 1
+                for wp in page['pageassessments']:
+                    wps[wp] = wps.get(wp, 0) + 1
+        return [{'wikiproject': wp, 'support': wps[wp] / tagged_pages} for wp in sorted(wps, key=wps.get, reverse=True)]
+    except Exception:
+        return []

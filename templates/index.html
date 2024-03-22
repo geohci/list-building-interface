@@ -55,22 +55,22 @@
 						<div class="cols cols8">
 							<div class="col col3">
 								{% if lang %}
-								<label class="placeholder"><span class="field_name">Language code -- e.g., en or wikidata</span>
+								<label class="placeholder"><span class="field_name">Language code -- e.g., en</span>
 									<input type="text" value="{{lang}}" placeholder="Placeholder text" id="lang"/>
 								</label>
 								{% else %}
-								<label class="placeholder"><span class="field_name">Language code -- e.g., en or wikidata</span>
+								<label class="placeholder"><span class="field_name">Language code -- e.g., en</span>
 									<input type="text" value="" placeholder="Placeholder text" id="lang"/>
 								</label>
 								{% endif %}
 							</div>
 							<div class="col col3">
 								{% if page_title %}
-								<label class="placeholder"><span class="field_name">Page title -- e.g., Douglas Adams or Q42</span>
+								<label class="placeholder"><span class="field_name">Page title -- e.g., Douglas Adams</span>
 									<input type="text" value="{{page_title}}" placeholder="Placeholder text" id="page_title"/>
 								</label>
 								{% else %}
-								<label class="placeholder"><span class="field_name">Page title -- e.g., Douglas Adams or Q42</span>
+								<label class="placeholder"><span class="field_name">Page title -- e.g., Douglas Adams</span>
 									<input type="text" value="" placeholder="Placeholder text" id="page_title"/>
 								</label>
 								{% endif %}
@@ -198,7 +198,7 @@
 		var generate_pagepile = function(source) {
 			pagepile_url = 'https://pagepile.toolforge.org/api.php';
 			var data = {'action': 'create_pile_with_data'};
-			if (source == 'wikidata' || document.getElementById('lang').value == 'wikidata') {
+			if (source == 'wikidata') {
 				data['wiki'] = 'wikdatawiki';
 				// each line is tab-delimited and contains the page title optionally followed by namespace (or -999 for auto-detect)
 				data['data'] = get_qids().map(q => q + '\t0').join('\n');
@@ -253,9 +253,6 @@
 			if (data["results"].length > 0) {
 				var table_data = [];
 				var lang = document.getElementById('lang').value;
-				if (lang == 'wikidata') {
-					lang = 'en';
-				}
 				var seen_pages = JSON.parse(sessionStorage.getItem("pages"));
 				var reader_offset = parseInt(sessionStorage.getItem('offset-reader'));
 				var links_offset = parseInt(sessionStorage.getItem('offset-links'));
@@ -355,18 +352,24 @@
 				sessionStorage.setItem("offset-links", links_offset);
 				sessionStorage.setItem("offset-morelike", morelike_offset);	
 				sessionStorage.setItem("pages", JSON.stringify(seen_pages));
-			}			
+			}
+			if ("wikiprojects" in data && data["wikiprojects"].length > 0) {
+				var wp_html = '<div id="wps">Potential WikiProjects:';
+				for (var wp_idx in data["wikiprojects"]) {
+					wp_html += "<li>" + data["wikiprojects"][wp_idx]["wikiproject"] + "</li>";
+				}
+				wp_html += '</div>';
+				$("#results").append(wp_html);
+			}		
 		}
 
 		function clear_or_get_qid() {
 			var lang = document.getElementById('lang').value;
 			var title = document.getElementById('page_title').value;
 			var query_page = "https://" + lang + ".wikipedia.org/wiki/" + title;
-			if (lang == 'wikidata') {
-				query_page = 'https://www.wikidata.org/wiki/' + title;
-			}
 			var results_page = sessionStorage.getItem("seed-page");
 			if (query_page == results_page) {
+				sessionStorage.setItem("wps", 1);
 				return sessionStorage.getItem("seed-qid");
 			} else {
 				$("#results").empty();
@@ -396,6 +399,16 @@
 			if (links_offset > 0) {offset_html += "&offset-links=" + links_offset};
 			if (morelike_offset > 0) {offset_html += "&offset-morelike=" + morelike_offset};
 			return offset_html;
+		}
+
+		function get_wp() {
+			var valid_wp_langs = Array("ar", "en", "fr", "hu", "tr", "zh");
+			if (valid_wp_langs.includes(document.getElementById('lang').value)) {
+				if (!("wps" in sessionStorage)) {
+					return "&wp";
+				}
+			}
+			return "";
 		}
 
 		function get_ks() {
@@ -439,11 +452,7 @@
 		function queryListBuildingModels() {
 			var lang = document.getElementById('lang').value;
 			if (lang && !document.getElementById('page_title').value) {
-				if (lang == 'wikidata') {
-					var randomPageQueryURL = "https://www.wikidata.org/w/api.php?action=query&format=json&list=random&rnlimit=1&rnnamespace=0&origin=*";
-				} else {
-					var randomPageQueryURL = "https://" + lang + ".wikipedia.org/w/api.php?action=query&format=json&list=random&rnlimit=1&rnnamespace=0&origin=*";
-				}
+				var randomPageQueryURL = "https://" + lang + ".wikipedia.org/w/api.php?action=query&format=json&list=random&rnlimit=1&rnnamespace=0&origin=*";
 				$.ajax(randomPageQueryURL, {success: update_title.bind(this),
 							  error: function(jqxmlhr, status, error){console.log(status + ": " + error)},
 							  async: false
@@ -451,7 +460,7 @@
 				  );
 			}
 			// Local development: http://127.0.0.1:5000/api/serpentine?lang=
-			var listUrl = "https://list-building.toolforge.org/api/serpentine?lang=" + lang + "&title=" + document.getElementById('page_title').value + "&qid=" + clear_or_get_qid() + get_offsets() + get_ks();
+			var listUrl = "https://list-building.toolforge.org/api/serpentine?lang=" + lang + "&title=" + document.getElementById('page_title').value + "&qid=" + clear_or_get_qid() + get_offsets() + get_ks() + get_wp();
 			$.ajax(listUrl, {success: function(jqxmlhr, status, error){render_list(jqxmlhr)},
 							  error: function(jqxmlhr, status, error){console.log(status + ": " + error)},
 							  }
